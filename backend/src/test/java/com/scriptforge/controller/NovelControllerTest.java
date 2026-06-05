@@ -1,6 +1,7 @@
 package com.scriptforge.controller;
 
 import com.scriptforge.exception.BusinessException;
+import com.scriptforge.model.dto.ChapterDto;
 import com.scriptforge.model.dto.UploadResultDto;
 import com.scriptforge.service.NovelService;
 import org.junit.jupiter.api.Test;
@@ -9,6 +10,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -28,7 +31,8 @@ class NovelControllerTest {
     @Test
     void shouldUploadTxtFileAndReturnCorrectJson() throws Exception {
         when(novelService.upload(any()))
-                .thenReturn(new UploadResultDto("abc-123", "故事.txt", 500));
+                .thenReturn(new UploadResultDto("abc-123", "故事.txt", 500,
+                        List.of(new ChapterDto(1, "第一章 开始", "这是测试内容。", 7))));
 
         var file = new MockMultipartFile(
                 "file", "故事.txt", "text/plain",
@@ -40,7 +44,9 @@ class NovelControllerTest {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.novelId").value("abc-123"))
                 .andExpect(jsonPath("$.data.fileName").value("故事.txt"))
-                .andExpect(jsonPath("$.data.totalChars").value(500));
+                .andExpect(jsonPath("$.data.totalChars").value(500))
+                .andExpect(jsonPath("$.data.chapters.length()").value(1))
+                .andExpect(jsonPath("$.data.chapters[0].title").value("第一章 开始"));
     }
 
     @Test

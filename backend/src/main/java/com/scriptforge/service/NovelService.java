@@ -19,6 +19,7 @@ import java.util.UUID;
 public class NovelService {
 
     private final NovelMapper novelMapper;
+    private final ChapterSplitter chapterSplitter;
 
     public UploadResultDto upload(MultipartFile file) {
         String originalName = file.getOriginalFilename();
@@ -53,8 +54,9 @@ public class NovelService {
                 .build();
 
         novelMapper.insert(novel);
-        log.info("Uploaded novel {} (uuid={}), {} chars", originalName, uuid, totalChars);
+        var chapters = chapterSplitter.split(content);
+        log.info("Uploaded novel {} (uuid={}), {} chars, {} chapters", originalName, uuid, totalChars, chapters.size());
 
-        return new UploadResultDto(uuid, originalName, totalChars);
+        return new UploadResultDto(uuid, originalName, totalChars, chapters);
     }
 }
