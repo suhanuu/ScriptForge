@@ -1,19 +1,11 @@
-server:
-  port: 8080
-
 spring:
-  application:
-    name: scriptforge
-
   datasource:
-    url: jdbc:sqlite:data/scriptforge.db
+    url: jdbc:sqlite:test.db
     driver-class-name: org.sqlite.JDBC
-
   sql:
     init:
       mode: always
       schema-locations: classpath:schema.sql
-
   servlet:
     multipart:
       max-file-size: 10MB
