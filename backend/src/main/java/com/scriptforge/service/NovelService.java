@@ -26,6 +26,11 @@ public class NovelService {
             throw new BusinessException("文件名不能为空");
         }
 
+        String ext = originalName.substring(originalName.lastIndexOf('.') + 1).toLowerCase();
+        if (!ext.equals("txt") && !ext.equals("md")) {
+            throw new BusinessException("仅支持 TXT/MD 格式文件");
+        }
+
         String content;
         try {
             content = new String(file.getBytes(), StandardCharsets.UTF_8);
