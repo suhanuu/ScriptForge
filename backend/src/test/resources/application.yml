@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:sqlite:test.db
+    url: jdbc:sqlite:target/test.db
     driver-class-name: org.sqlite.JDBC
   sql:
     init:
