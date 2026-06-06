@@ -74,4 +74,11 @@ public class NovelService {
 
         return new UploadResultDto(uuid, originalName, totalChars, chapters);
     }
+
+    /** 按 UUID 查询小说 */
+    public Novel getByUuid(String uuid) {
+        Novel novel = novelMapper.findByUuid(uuid);
+        if (novel == null) throw new BusinessException(404, "小说不存在");
+        return novel;
+    }
 }

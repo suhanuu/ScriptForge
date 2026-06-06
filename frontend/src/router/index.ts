@@ -5,6 +5,7 @@ const router = createRouter({
   routes: [
     { path: "/", name: "home", component: () => import("@/views/HomeView.vue") },
     { path: "/convert/:novelUuid?", name: "convert", component: () => import("@/views/ConvertView.vue") },
+    { path: "/viewer/:scriptId/:novelUuid", name: "viewer", component: () => import("@/views/ViewerView.vue") },
   ],
 });
 
