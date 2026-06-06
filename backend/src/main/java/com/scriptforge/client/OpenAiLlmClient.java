@@ -3,7 +3,9 @@ package com.scriptforge.client;
 import com.scriptforge.config.LlmProperties;
 import com.scriptforge.exception.ConversionException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -23,10 +25,14 @@ public class OpenAiLlmClient implements LlmClient {
 
     public OpenAiLlmClient(LlmProperties properties, RestClient.Builder builder) {
         this.properties = properties;
+        var factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(10));
+        factory.setReadTimeout(Duration.ofSeconds(properties.getTimeoutSeconds()));
         this.restClient = builder
                 .baseUrl(properties.getBaseUrl())
                 .defaultHeader("Authorization", "Bearer " + properties.getApiKey())
                 .defaultHeader("Content-Type", "application/json")
+                .requestFactory(factory)
                 .build();
     }
 
