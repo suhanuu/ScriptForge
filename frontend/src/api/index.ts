@@ -30,6 +30,15 @@ export async function get<T>(url: string): Promise<T> {
   return res.data.data;
 }
 
+/** POST JSON 请求，自动解包 SfResult.data */
+export async function post<T>(url: string, data?: unknown): Promise<T> {
+  const res = await http.post<SfResult<T>>(url, data);
+  if (res.data.code !== 0) {
+    throw new Error(res.data.message || "请求失败");
+  }
+  return res.data.data;
+}
+
 /** 上传文件，Content-Type 为 multipart/form-data */
 export async function uploadFile<T>(url: string, file: File): Promise<T> {
   const form = new FormData();
