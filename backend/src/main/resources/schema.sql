@@ -7,3 +7,24 @@ CREATE TABLE IF NOT EXISTS novels (
     total_chars INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS scripts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    novel_id BIGINT NOT NULL UNIQUE,
+    yaml_content TEXT,
+    scenes_count INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'CONVERTING',
+    error_message TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS chapters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    novel_id BIGINT NOT NULL,
+    chapter_number INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    word_count INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+);
