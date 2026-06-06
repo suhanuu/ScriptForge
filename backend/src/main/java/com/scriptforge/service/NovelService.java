@@ -1,8 +1,10 @@
 package com.scriptforge.service;
 
 import com.scriptforge.exception.BusinessException;
+import com.scriptforge.mapper.ChapterMapper;
 import com.scriptforge.mapper.NovelMapper;
 import com.scriptforge.model.dto.UploadResultDto;
+import com.scriptforge.model.entity.Chapter;
 import com.scriptforge.model.entity.Novel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +21,7 @@ import java.util.UUID;
 public class NovelService {
 
     private final NovelMapper novelMapper;
+    private final ChapterMapper chapterMapper;
     private final ChapterSplitter chapterSplitter;
 
     public UploadResultDto upload(MultipartFile file) {
@@ -55,6 +58,18 @@ public class NovelService {
 
         novelMapper.insert(novel);
         var chapters = chapterSplitter.split(content);
+
+        // 持久化章节到 DB，供后续转换流程查询
+        for (var ch : chapters) {
+            chapterMapper.insert(Chapter.builder()
+                    .novelId(novel.getId())
+                    .chapterNumber(ch.index())
+                    .title(ch.title())
+                    .content(ch.content())
+                    .wordCount(ch.charCount())
+                    .build());
+        }
+
         log.info("Uploaded novel {} (uuid={}), {} chars, {} chapters", originalName, uuid, totalChars, chapters.size());
 
         return new UploadResultDto(uuid, originalName, totalChars, chapters);
