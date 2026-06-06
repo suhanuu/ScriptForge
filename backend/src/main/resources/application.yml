@@ -23,3 +23,15 @@ mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
   mapper-locations: classpath*:/mapper/**/*.xml
+
+scriptforge:
+  llm:
+    api-key: ${LLM_API_KEY:}
+    base-url: ${LLM_BASE_URL:https://api.deepseek.com/v1}
+    model: ${LLM_MODEL:deepseek-chat}
+    timeout-seconds: 120
+    max-retries: 2
+
+logging:
+  file:
+    path: logs
