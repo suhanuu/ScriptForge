@@ -1,5 +1,3 @@
-/** API 通信层的基础 HTTP 工具类型 */
-
 /** 分章结果中的单个章节 */
 export interface ChapterDto {
   index: number;
@@ -14,4 +12,26 @@ export interface UploadResultDto {
   fileName: string;
   totalChars: number;
   chapters: ChapterDto[];
+}
+
+/** 转换请求 */
+export interface ConvertRequestDto {
+  novelUuid: string;
+  chapterNumbers?: number[];
+}
+
+/** 章节转换进度 */
+export interface ChapterProgress {
+  chapterNumber: number;
+  chapterTitle: string;
+  status: string; // CONVERTING | DONE | ERROR
+  errorMessage?: string;
+}
+
+/** 转换结果 */
+export interface ConvertResult {
+  scriptId: number;
+  status: string; // CONVERTING | READY | PARTIAL_ERROR | ERROR
+  yamlContent: string;
+  chapterProgress: ChapterProgress[];
 }
