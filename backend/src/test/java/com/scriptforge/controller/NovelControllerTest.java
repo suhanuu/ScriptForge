@@ -1,9 +1,11 @@
 package com.scriptforge.controller;
 
+import com.scriptforge.client.LlmClient;
 import com.scriptforge.exception.BusinessException;
 import com.scriptforge.model.dto.ChapterDto;
 import com.scriptforge.model.dto.UploadResultDto;
 import com.scriptforge.service.NovelService;
+import com.scriptforge.service.ScriptService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -27,6 +29,12 @@ class NovelControllerTest {
 
     @MockBean
     private NovelService novelService;
+
+    @MockBean
+    private ScriptService scriptService;
+
+    @MockBean
+    private LlmClient llmClient;
 
     @Test
     void shouldUploadTxtFileAndReturnCorrectJson() throws Exception {

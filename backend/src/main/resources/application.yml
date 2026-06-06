@@ -35,3 +35,7 @@ scriptforge:
 logging:
   file:
     path: logs
+  logback:
+    rollingpolicy:
+      max-history: 3
+      clean-history-on-start: true

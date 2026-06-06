@@ -1,0 +1,202 @@
+package com.scriptforge.service;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.scriptforge.client.LlmClient;
+import com.scriptforge.exception.ConversionException;
+import com.scriptforge.model.entity.Chapter;
+import com.scriptforge.model.schema.*;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+import java.time.Instant;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+/**
+ * 剧本转换引擎 —— 核心管道：逐章调 LLM → 解析 YAML → 校验 → 合并 → 润色。
+ */
+@Slf4j
+@Component
+public class ScriptConverter {
+
+    private final LlmClient llmClient;
+    private final YamlValidator validator;
+    private final PromptBuilder promptBuilder;
+    private final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
+
+    private static final Pattern YAML_BLOCK = Pattern.compile(
+            "```\\s*(?:yaml|yml)?\\s*\\n(.*?)```", Pattern.DOTALL);
+
+    public ScriptConverter(LlmClient llmClient, YamlValidator validator, PromptBuilder promptBuilder) {
+        this.llmClient = llmClient;
+        this.validator = validator;
+        this.promptBuilder = promptBuilder;
+    }
+
+    /** 第一阶段：逐章转换，返回各章独立 ScriptOutput */
+    public List<ChapterScriptResult> convertChapters(List<Chapter> chapters) {
+        List<ChapterScriptResult> results = new ArrayList<>();
+        for (Chapter ch : chapters) {
+            results.add(convertOneChapter(ch));
+        }
+        return results;
+    }
+
+    /** 合并多章 ScriptOutput 为完整剧本 */
+    public String merge(List<ScriptOutput> chapterScripts, String novelTitle) throws JsonProcessingException {
+        List<CharacterDef> allChars = mergeCharacters(chapterScripts);
+        List<LocationDef> allLocs = mergeLocations(chapterScripts);
+        List<EpisodeDef> allEpisodes = mergeEpisodes(chapterScripts, allChars, allLocs);
+
+        ScriptOutput merged = ScriptOutput.builder()
+                .metadata(ScriptMetadata.builder()
+                        .title(novelTitle + " - 剧本")
+                        .originalWork(novelTitle)
+                        .author("AI转换")
+                        .version("1.0")
+                        .createdAt(Instant.now().toString())
+                        .estimatedDuration(countScenes(allEpisodes) * 2)
+                        .build())
+                .characters(allChars)
+                .locations(allLocs)
+                .episodes(allEpisodes)
+                .build();
+
+        validator.autoFix(merged);
+        return yamlMapper.writeValueAsString(merged);
+    }
+
+    /** 第二阶段：对合并后的每个 scene 做"去 AI 味"润色（可选，失败不阻塞） */
+    public String polishScene(String sceneYaml) {
+        if (!llmClient.isConfigured()) {
+            return sceneYaml;
+        }
+        try {
+            String polishPrompt = """
+你是一位专业对白编剧。请润色以下剧本场景的对话，使其更口语化。
+
+规则：1) 保留原意和剧情信息 2) 用口语词汇和短句 3) 去掉书面语表达（'鉴于''因此''然而'→口语替代）
+4) 如果原文已足够口语化则原样保留
+
+只返回润色后的完整 scene YAML，用 ```yaml 包裹。
+
+""" + sceneYaml;
+
+            String result = llmClient.chat(polishPrompt, polishPrompt);
+            return extractYaml(result);
+        } catch (Exception e) {
+            log.warn("润色失败，保留原始版本: {}", e.getMessage());
+            return sceneYaml;
+        }
+    }
+
+    // ---- 内部方法 ----
+
+    private ChapterScriptResult convertOneChapter(Chapter ch) {
+        String userPrompt = promptBuilder.buildUserPrompt(ch.getTitle(), ch.getContent());
+        String systemPrompt = promptBuilder.buildSystemPrompt();
+
+        for (int attempt = 0; attempt <= 2; attempt++) {
+            try {
+                String raw = llmClient.chat(systemPrompt, userPrompt);
+                String yaml = extractYaml(raw);
+                var parseResult = validator.tryParse(yaml);
+                if (!parseResult.success()) {
+                    log.warn("第{}章 第{}次尝试解析失败: {}", ch.getChapterNumber(), attempt + 1, parseResult.error());
+                    if (attempt < 2) {
+                        userPrompt = userPrompt + "\n\n上一次输出不符合 YAML Schema，请严格按照指定格式重新输出，只输出 ```yaml 代码块";
+                    }
+                    continue;
+                }
+
+                var errors = validator.validate(parseResult.script());
+                if (errors.isEmpty()) {
+                    return new ChapterScriptResult(ch.getChapterNumber(), parseResult.script(), null);
+                }
+
+                log.warn("第{}章 第{}次尝试校验失败: {}", ch.getChapterNumber(), attempt + 1, errors);
+                validator.autoFix(parseResult.script());
+                var remaining = validator.validate(parseResult.script());
+                if (remaining.isEmpty()) {
+                    return new ChapterScriptResult(ch.getChapterNumber(), parseResult.script(), null);
+                }
+                if (attempt < 2) {
+                    userPrompt = userPrompt + "\n\n上一次输出校验未通过: " + String.join("; ", remaining) + "。请修正后重新输出。";
+                }
+            } catch (Exception e) {
+                log.error("第{}章 第{}次尝试 LLM 调用失败: {}", ch.getChapterNumber(), attempt + 1, e.getMessage());
+            }
+        }
+        return new ChapterScriptResult(ch.getChapterNumber(), null, "转换失败，已重试2次");
+    }
+
+    /** 从 LLM 输出中提取 YAML 代码块 */
+    String extractYaml(String llmOutput) {
+        Matcher m = YAML_BLOCK.matcher(llmOutput);
+        if (m.find()) return m.group(1).trim();
+        // 尝试直接作为 YAML 解析
+        return llmOutput.trim();
+    }
+
+    private List<CharacterDef> mergeCharacters(List<ScriptOutput> scripts) {
+        Map<String, CharacterDef> seen = new LinkedHashMap<>();
+        for (var s : scripts) {
+            if (s.getCharacters() != null) {
+                for (var c : s.getCharacters()) {
+                    seen.putIfAbsent(c.getName(), c);
+                }
+            }
+        }
+        return new ArrayList<>(seen.values());
+    }
+
+    private List<LocationDef> mergeLocations(List<ScriptOutput> scripts) {
+        Map<String, LocationDef> seen = new LinkedHashMap<>();
+        for (var s : scripts) {
+            if (s.getLocations() != null) {
+                for (var l : s.getLocations()) {
+                    seen.putIfAbsent(l.getName(), l);
+                }
+            }
+        }
+        return new ArrayList<>(seen.values());
+    }
+
+    private List<EpisodeDef> mergeEpisodes(List<ScriptOutput> scripts, List<CharacterDef> chars, List<LocationDef> locs) {
+        Set<String> charIds = chars.stream().map(CharacterDef::getId).collect(Collectors.toSet());
+        List<EpisodeDef> all = new ArrayList<>();
+        int episodeId = 1;
+        for (var s : scripts) {
+            if (s.getEpisodes() != null) {
+                for (var ep : s.getEpisodes()) {
+                    for (var scene : ep.getScenes()) {
+                        // 过滤不存在的角色引用
+                        if (scene.getCharactersPresent() != null) {
+                            scene.setCharactersPresent(
+                                    scene.getCharactersPresent().stream()
+                                            .filter(charIds::contains)
+                                            .collect(Collectors.toList())
+                            );
+                        }
+                    }
+                    ep.setEpisodeId(episodeId++);
+                    all.add(ep);
+                }
+            }
+        }
+        return all;
+    }
+
+    private int countScenes(List<EpisodeDef> episodes) {
+        return episodes.stream().mapToInt(e -> e.getScenes().size()).sum();
+    }
+
+    /** 单章转换结果 */
+    public record ChapterScriptResult(int chapterNumber, ScriptOutput script, String error) {
+        public boolean success() { return script != null; }
+    }
+}
