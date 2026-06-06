@@ -39,9 +39,10 @@
 
       <!-- 操作栏 -->
       <div class="result-actions">
-        <a v-if="result.scriptId" :href="getDownloadUrl(result.scriptId)" class="btn btn-primary" download>
-          下载 YAML
-        </a>
+        <router-link v-if="result.scriptId && novelUuid"
+          :to="{ name: 'viewer', params: { scriptId: result.scriptId, novelUuid } }"
+          class="btn btn-primary">查看对比</router-link>
+        <a v-if="result.scriptId" :href="getDownloadUrl(result.scriptId)" class="btn btn-secondary" download>下载 YAML</a>
         <button class="btn btn-ghost" @click="reset">重新转换</button>
       </div>
 
@@ -97,6 +98,8 @@ function reset() { result.value = null; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .btn-primary { background: #6366f1; color: #fff; }
 .btn-primary:hover:not(:disabled) { background: #4f46e5; }
+.btn-secondary { background: #fff; color: #374151; border: 1px solid #d1d5db; }
+.btn-secondary:hover { background: #f3f4f6; }
 .btn-ghost { background: transparent; color: #6b7280; }
 
 .progress-section { text-align: center; padding: 64px 0; }
