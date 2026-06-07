@@ -33,9 +33,14 @@ export async function get<T>(url: string): Promise<T> {
 /** POST JSON 请求，自动解包 SfResult.data */
 export async function post<T>(url: string, data?: unknown): Promise<T> {
   const res = await http.post<SfResult<T>>(url, data);
-  if (res.data.code !== 0) {
-    throw new Error(res.data.message || "请求失败");
-  }
+  if (res.data.code !== 0) throw new Error(res.data.message || "请求失败");
+  return res.data.data;
+}
+
+/** PUT JSON 请求，自动解包 SfResult.data */
+export async function put<T>(url: string, data?: unknown): Promise<T> {
+  const res = await http.put<SfResult<T>>(url, data);
+  if (res.data.code !== 0) throw new Error(res.data.message || "请求失败");
   return res.data.data;
 }
 

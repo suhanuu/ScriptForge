@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 /** 剧本转换与下载控制器 */
 @RestController
@@ -33,6 +34,13 @@ public class ScriptController {
         return SfResult.success(ScriptService.ConvertResult.builder()
                 .scriptId(script.getId()).status(script.getStatus())
                 .yamlContent(script.getYamlContent()).build());
+    }
+
+    /** 保存编辑后的 YAML */
+    @PutMapping("/{id}/yaml")
+    public SfResult<Void> saveYaml(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        scriptService.saveYaml(id, body.get("yamlContent"));
+        return SfResult.success();
     }
 
     /** 下载 YAML 文件 */

@@ -3,13 +3,14 @@
     <div class="toolbar">
       <router-link to="/" class="back-link">&larr; 返回</router-link>
       <h2>{{ novelTitle }}</h2>
-      <a v-if="scriptId" :href="`/api/scripts/${scriptId}/yaml`" class="btn btn-primary" download>下载 YAML</a>
+      <button class="btn btn-ghost" @click="editMode = !editMode">{{ editMode ? '预览' : '编辑' }}</button>
+      <button v-if="editMode && scriptId" class="btn btn-primary" @click="saveYaml">保存</button>
+      <a v-if="scriptId" :href="downloadUrl" class="btn btn-secondary" download>下载 YAML</a>
     </div>
 
     <div v-if="loading" class="loading"><div class="spinner" /><p>加载中...</p></div>
 
     <div v-else class="split-view">
-      <!-- 左栏：原文 -->
       <div class="panel panel-left">
         <h3>小说原文</h3>
         <div class="chapter-content">
@@ -20,10 +21,10 @@
         </div>
       </div>
 
-      <!-- 右栏：剧本 YAML -->
       <div class="panel panel-right">
-        <h3>剧本</h3>
-        <pre class="yaml-text"><code>{{ yamlContent || '暂无剧本内容' }}</code></pre>
+        <h3>剧本 {{ editMode ? '(编辑)' : '' }}</h3>
+        <YamlEditor v-if="editMode" v-model="yamlContent" />
+        <pre v-else class="yaml-text"><code>{{ yamlContent || '暂无剧本内容' }}</code></pre>
       </div>
     </div>
   </div>
@@ -33,7 +34,8 @@
 import { ref, onMounted, computed } from "vue";
 import { useRoute } from "vue-router";
 import { get } from "@/api";
-import { getScriptResult } from "@/api/script";
+import { getScriptResult, saveScriptYaml } from "@/api/script";
+import YamlEditor from "@/components/Script/YamlEditor.vue";
 import type { ChapterDto, ConvertResult } from "@/types";
 
 interface NovelData { id: number; uuid: string; fileName: string; rawContent: string; totalChars: number; }
@@ -41,8 +43,10 @@ interface NovelData { id: number; uuid: string; fileName: string; rawContent: st
 const route = useRoute();
 const scriptId = computed(() => Number(route.params.scriptId));
 const novelUuid = computed(() => route.params.novelUuid as string);
+const downloadUrl = computed(() => `/api/scripts/${scriptId.value}/yaml`);
 
 const loading = ref(true);
+const editMode = ref(false);
 const novelTitle = ref("");
 const yamlContent = ref("");
 const chapters = ref<ChapterDto[]>([]);
@@ -54,7 +58,6 @@ onMounted(async () => {
       getScriptResult(scriptId.value).catch(() => null),
     ]);
     novelTitle.value = novelRes.fileName || "未命名";
-    // 后端返回 rawContent，简单分行展示
     const raw = novelRes.rawContent || "";
     const chSections = raw.split(/(?=第[0-9零一二三四五六七八九十百千]+[章节回卷])/);
     chapters.value = chSections
@@ -68,10 +71,18 @@ onMounted(async () => {
       const result = scriptRes as unknown as ConvertResult;
       yamlContent.value = result.yamlContent || "";
     }
-  } finally {
-    loading.value = false;
-  }
+  } finally { loading.value = false; }
 });
+
+async function saveYaml() {
+  if (!scriptId.value) return;
+  try {
+    await saveScriptYaml(scriptId.value, yamlContent.value);
+    alert("保存成功");
+  } catch (e: unknown) {
+    alert("保存失败: " + (e instanceof Error ? e.message : "未知错误"));
+  }
+}
 </script>
 
 <style scoped>
@@ -81,6 +92,8 @@ onMounted(async () => {
 .back-link { color: #6366f1; text-decoration: none; }
 .btn { padding: 8px 20px; border: none; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }
 .btn-primary { background: #6366f1; color: #fff; }
+.btn-ghost { background: transparent; color: #6b7280; border: 1px solid #d1d5db; }
+.btn-ghost:hover { background: #f3f4f6; }
 
 .loading { text-align: center; padding: 64px 0; }
 .spinner { width: 36px; height: 36px; margin: 0 auto 16px; border: 3px solid #e5e7eb; border-top-color: #6366f1; border-radius: 50%; animation: spin .8s linear infinite; }

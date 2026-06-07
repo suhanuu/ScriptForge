@@ -1,4 +1,4 @@
-import { post, get } from "./index";
+import { post, get, put } from "./index";
 import type { ConvertRequestDto, ConvertResult } from "@/types";
 
 /** 发起剧本转换 */
@@ -9,6 +9,11 @@ export function convertScript(data: ConvertRequestDto) {
 /** 获取转换结果 */
 export function getScriptResult(id: number) {
   return get<ConvertResult>(`/scripts/${id}`);
+}
+
+/** 保存编辑后的 YAML */
+export function saveScriptYaml(id: number, yamlContent: string) {
+  return put(`/scripts/${id}/yaml`, { yamlContent });
 }
 
 /** 下载 YAML 的 URL */
