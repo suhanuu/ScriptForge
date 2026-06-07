@@ -37,13 +37,89 @@ public class ScriptConverter {
         this.promptBuilder = promptBuilder;
     }
 
-    /** 第一阶段：逐章转换，返回各章独立 ScriptOutput */
+    /** 单章最大字符数，超过则分段转换 */
+    private static final int MAX_CHAPTER_LENGTH = 8000;
+
+    /** 第一阶段：逐章转换，超长章节自动分段 */
     public List<ChapterScriptResult> convertChapters(List<Chapter> chapters) {
         List<ChapterScriptResult> results = new ArrayList<>();
         for (Chapter ch : chapters) {
-            results.add(convertOneChapter(ch));
+            if (ch.getContent() != null && ch.getContent().length() > MAX_CHAPTER_LENGTH) {
+                results.addAll(convertLongChapter(ch));
+            } else {
+                results.add(convertOneChapter(ch));
+            }
         }
         return results;
+    }
+
+    /** 超长章节：按场景自然分段，每段附带前一段末尾 2-3 句作为上下文，独立转换后合并 */
+    private List<ChapterScriptResult> convertLongChapter(Chapter ch) {
+        List<String> segments = splitByNaturalBreaks(ch.getContent());
+        List<ScriptOutput> segmentScripts = new ArrayList<>();
+        boolean anyFailed = false;
+        String prevTail = "";
+
+        for (int i = 0; i < segments.size(); i++) {
+            // 前一段末尾 2-3 句作为上下文，帮助 LLM 保持情节连贯
+            String contextPrefix = prevTail.isEmpty() ? "" : "(接上文: " + prevTail + ")\n\n";
+            String segContent = contextPrefix + segments.get(i);
+            // 更新 prevTail 为当前段末尾 2-3 句
+            prevTail = extractTail(segments.get(i), 3);
+
+            Chapter seg = Chapter.builder()
+                    .chapterNumber(ch.getChapterNumber())
+                    .title(ch.getTitle() + "(" + (i + 1) + "/" + segments.size() + ")")
+                    .content(segContent)
+                    .build();
+            var result = convertOneChapter(seg);
+            if (result.success()) {
+                segmentScripts.add(result.script());
+            } else {
+                anyFailed = true;
+            }
+        }
+
+        if (segmentScripts.isEmpty()) {
+            return List.of(new ChapterScriptResult(ch.getChapterNumber(), null, "分段转换全部失败"));
+        }
+
+        try {
+            String merged = merge(segmentScripts, ch.getTitle());
+            var parseResult = validator.tryParse(merged);
+            return List.of(parseResult.success()
+                    ? new ChapterScriptResult(ch.getChapterNumber(), parseResult.script(),
+                            anyFailed ? "部分分段转换失败" : null)
+                    : new ChapterScriptResult(ch.getChapterNumber(), null, "分段合并后解析失败"));
+        } catch (Exception e) {
+            return List.of(new ChapterScriptResult(ch.getChapterNumber(), null, "分段合并失败: " + e.getMessage()));
+        }
+    }
+
+    /** 提取文本末尾最后 n 句话（以句号/问号/感叹号为界） */
+    private String extractTail(String text, int sentenceCount) {
+        String[] parts = text.split("[。？！]");
+        if (parts.length <= sentenceCount) return text.substring(Math.max(0, text.length() - 50));
+        StringBuilder tail = new StringBuilder();
+        for (int i = parts.length - sentenceCount; i < parts.length; i++) {
+            tail.append(parts[i]).append("。");
+        }
+        return tail.length() > 100 ? tail.substring(tail.length() - 100) : tail.toString();
+    }
+
+    /** 按空行或句号+换行自然分段，每段不超过 maxLength */
+    private List<String> splitByNaturalBreaks(String content) {
+        List<String> segments = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        for (String line : content.split("\n")) {
+            if (current.length() + line.length() > MAX_CHAPTER_LENGTH && !current.isEmpty()) {
+                segments.add(current.toString());
+                current = new StringBuilder();
+            }
+            current.append(line).append("\n");
+        }
+        if (!current.isEmpty()) segments.add(current.toString());
+        return segments;
     }
 
     /** 合并多章 ScriptOutput 为完整剧本 */

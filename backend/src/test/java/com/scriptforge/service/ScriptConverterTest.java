@@ -137,6 +137,42 @@ episodes:
     }
 
     @Test
+    void shouldSplitLongChapter() {
+        // 构造超过 8000 字的内容
+        StringBuilder longContent = new StringBuilder();
+        for (int i = 0; i < 600; i++) {
+            longContent.append("重复内容用于测试超长章节分段处理机制。\n");
+        }
+        String yaml = """
+```yaml
+metadata:
+  title: "T"
+  original_work: "O"
+  author: "A"
+characters: []
+locations: []
+episodes:
+  - episode_id: 1
+    title: "E1"
+    scenes:
+      - scene_id: "1-1"
+        location: "L"
+        content:
+          - type: "action"
+            text: "X"
+          - type: "transition"
+            effect: "无"
+            next_scene: null
+```
+""";
+        when(llmClient.chat(anyString(), anyString())).thenReturn(yaml);
+        Chapter ch = Chapter.builder().chapterNumber(1).title("超长章").content(longContent.toString()).build();
+        var results = converter.convertChapters(List.of(ch));
+        assertEquals(1, results.size());
+        assertTrue(results.get(0).success(), "Long chapter should convert with segmentation");
+    }
+
+    @Test
     void shouldReturnErrorAfterAllRetries() {
         when(llmClient.chat(anyString(), anyString())).thenReturn("invalid yaml {{{");
 
