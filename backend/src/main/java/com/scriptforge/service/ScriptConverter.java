@@ -37,13 +37,71 @@ public class ScriptConverter {
         this.promptBuilder = promptBuilder;
     }
 
-    /** 第一阶段：逐章转换，返回各章独立 ScriptOutput */
+    /** 单章最大字符数，超过则分段转换 */
+    private static final int MAX_CHAPTER_LENGTH = 8000;
+
+    /** 第一阶段：逐章转换，超长章节自动分段 */
     public List<ChapterScriptResult> convertChapters(List<Chapter> chapters) {
         List<ChapterScriptResult> results = new ArrayList<>();
         for (Chapter ch : chapters) {
-            results.add(convertOneChapter(ch));
+            if (ch.getContent() != null && ch.getContent().length() > MAX_CHAPTER_LENGTH) {
+                results.addAll(convertLongChapter(ch));
+            } else {
+                results.add(convertOneChapter(ch));
+            }
         }
         return results;
+    }
+
+    /** 超长章节：按场景自然分段（以空行或句号+换行为界），每段独立转换后合并 */
+    private List<ChapterScriptResult> convertLongChapter(Chapter ch) {
+        List<String> segments = splitByNaturalBreaks(ch.getContent());
+        List<ScriptOutput> segmentScripts = new ArrayList<>();
+        boolean anyFailed = false;
+
+        for (int i = 0; i < segments.size(); i++) {
+            Chapter seg = Chapter.builder()
+                    .chapterNumber(ch.getChapterNumber())
+                    .title(ch.getTitle() + "(" + (i + 1) + "/" + segments.size() + ")")
+                    .content(segments.get(i))
+                    .build();
+            var result = convertOneChapter(seg);
+            if (result.success()) {
+                segmentScripts.add(result.script());
+            } else {
+                anyFailed = true;
+            }
+        }
+
+        if (segmentScripts.isEmpty()) {
+            return List.of(new ChapterScriptResult(ch.getChapterNumber(), null, "分段转换全部失败"));
+        }
+
+        try {
+            String merged = merge(segmentScripts, ch.getTitle());
+            var parseResult = validator.tryParse(merged);
+            return List.of(parseResult.success()
+                    ? new ChapterScriptResult(ch.getChapterNumber(), parseResult.script(),
+                            anyFailed ? "部分分段转换失败" : null)
+                    : new ChapterScriptResult(ch.getChapterNumber(), null, "分段合并后解析失败"));
+        } catch (Exception e) {
+            return List.of(new ChapterScriptResult(ch.getChapterNumber(), null, "分段合并失败: " + e.getMessage()));
+        }
+    }
+
+    /** 按空行或句号+换行自然分段，每段不超过 maxLength */
+    private List<String> splitByNaturalBreaks(String content) {
+        List<String> segments = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        for (String line : content.split("\n")) {
+            if (current.length() + line.length() > MAX_CHAPTER_LENGTH && !current.isEmpty()) {
+                segments.add(current.toString());
+                current = new StringBuilder();
+            }
+            current.append(line).append("\n");
+        }
+        if (!current.isEmpty()) segments.add(current.toString());
+        return segments;
     }
 
     /** 合并多章 ScriptOutput 为完整剧本 */
