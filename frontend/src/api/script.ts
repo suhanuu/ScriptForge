@@ -11,6 +11,11 @@ export function getScriptResult(id: number) {
   return get<ConvertResult>(`/scripts/${id}`);
 }
 
+/** Schema 校验 YAML */
+export function validateYaml(yaml: string) {
+  return post<string[]>("/scripts/validate", { yaml });
+}
+
 /** 保存编辑后的 YAML */
 export function saveScriptYaml(id: number, yamlContent: string) {
   return put(`/scripts/${id}/yaml`, { yamlContent });
