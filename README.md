@@ -6,8 +6,8 @@
 [![Vue 3](https://img.shields.io/badge/Vue-3-42b883)](https://vuejs.org/)
 [![License MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-演示视频：[待录制]  
-线上地址：[待部署]
+演示视频：[B站](https://www.bilibili.com/video/BV1FjEh6BE22/)
+线上地址：http://120.79.207.67/
 
 ## 核心功能
 
