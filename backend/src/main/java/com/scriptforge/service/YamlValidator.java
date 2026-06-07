@@ -1,5 +1,6 @@
 package com.scriptforge.service;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.scriptforge.model.schema.*;
@@ -21,7 +22,8 @@ import java.util.stream.Stream;
 @Component
 public class YamlValidator {
 
-    private final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
+    private final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory())
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     /** 校验 ScriptOutput，返回错误列表，空列表表示通过 */
     public List<String> validate(ScriptOutput script) {
@@ -92,13 +94,17 @@ public class YamlValidator {
         return errors;
     }
 
-    /** 尝试解析 YAML 字符串，返回 (ScriptOutput, errorMessage) */
+    /** 尝试解析 YAML 字符串，错误信息只保留字段名和位置，不输出完整异常栈 */
     public ParseResult tryParse(String yaml) {
         try {
             ScriptOutput script = yamlMapper.readValue(yaml, ScriptOutput.class);
             return new ParseResult(script, null);
         } catch (Exception e) {
-            return new ParseResult(null, e.getMessage());
+            String msg = e.getMessage();
+            // 精简：只保留 "Unrecognized field" 或具体的解析错误位置
+            int atIdx = msg.indexOf(" at [Source:");
+            if (atIdx > 0) msg = msg.substring(0, atIdx);
+            return new ParseResult(null, msg);
         }
     }
 
