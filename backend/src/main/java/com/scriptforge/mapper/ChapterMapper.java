@@ -16,8 +16,10 @@ public interface ChapterMapper extends BaseMapper<Chapter> {
 
     @Select("<script>" +
             "SELECT * FROM chapters WHERE novel_id = #{novelId} " +
+            "<if test='chapterNumbers != null and chapterNumbers.size() > 0'>" +
             "AND chapter_number IN " +
-            "<foreach item='n' collection='list' open='(' separator=',' close=')'>#{n}</foreach> " +
+            "<foreach item='n' collection='chapterNumbers' open='(' separator=',' close=')'>#{n}</foreach>" +
+            "</if>" +
             "ORDER BY chapter_number ASC" +
             "</script>")
     List<Chapter> findByNovelIdAndChapterNumbers(Long novelId, List<Integer> chapterNumbers);

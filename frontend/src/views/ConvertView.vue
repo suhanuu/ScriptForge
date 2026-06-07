@@ -40,7 +40,7 @@
       <!-- 操作栏 -->
       <div class="result-actions">
         <router-link v-if="result.scriptId && novelUuid"
-          :to="{ name: 'viewer', params: { scriptId: result.scriptId, novelUuid } }"
+          :to="{ name: 'viewer', params: { scriptId: result.scriptId, novelUuid }, query: { chapters: route.query.chapters } }"
           class="btn btn-primary">查看对比</router-link>
         <a v-if="result.scriptId" :href="getDownloadUrl(result.scriptId)" class="btn btn-secondary" download>下载 YAML</a>
         <button class="btn btn-ghost" @click="reset">重新转换</button>
@@ -63,6 +63,10 @@ import type { ConvertResult } from "@/types";
 
 const route = useRoute();
 const novelUuid = ref((route.params.novelUuid as string) || "");
+const chapterNumbers = computed(() => {
+  const s = route.query.chapters as string;
+  return s ? s.split(",").map(Number).filter(n => !isNaN(n)) : undefined;
+});
 
 const converting = ref(false);
 const result = ref<ConvertResult | null>(null);
@@ -77,7 +81,7 @@ async function startConversion() {
   converting.value = true;
   result.value = null;
   try {
-    result.value = await convertScript({ novelUuid: novelUuid.value });
+    result.value = await convertScript({ novelUuid: novelUuid.value, chapterNumbers: chapterNumbers.value });
   } catch (e) {
     result.value = { scriptId: 0, status: "ERROR", yamlContent: "", chapterProgress: [] };
   } finally {

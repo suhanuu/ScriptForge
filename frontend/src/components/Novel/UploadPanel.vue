@@ -35,15 +35,20 @@
 
     <!-- 分章结果 -->
     <div v-if="result" class="chapter-result">
-      <h3>分章结果（{{ result.chapters.length }} 章）</h3>
+      <div class="chapter-header">
+        <h3>分章结果（{{ result.chapters.length }} 章）</h3>
+        <button class="btn-toggle" @click="toggleAll">{{ allSelected ? '取消全选' : '全选' }}</button>
+      </div>
       <ul class="chapter-list">
-        <li v-for="ch in result.chapters" :key="ch.index" class="chapter-item">
+        <li v-for="ch in result.chapters" :key="ch.index" class="chapter-item" :class="{ unselected: !selected.has(ch.index) }">
+          <input type="checkbox" :checked="selected.has(ch.index)" @change="toggleChapter(ch.index)" />
           <span class="ch-index">{{ ch.index }}</span>
           <span class="ch-title">{{ ch.title }}</span>
           <span class="ch-count">{{ ch.charCount }} 字</span>
         </li>
       </ul>
-      <button class="btn" @click="$emit('confirm', result.novelId)">
+      <p class="select-count">已选 {{ selected.size }}/{{ result.chapters.length }} 章</p>
+      <button class="btn" @click="$emit('confirm', result.novelId, Array.from(selected))">
         确认并继续
       </button>
     </div>
@@ -51,13 +56,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { uploadNovel } from "@/api/novel";
 import type { UploadResultDto } from "@/types";
 
-/** 上传完成时触发，传递 novelId */
+/** Confirm 事件，传递 novelId 和选中的章节序号 */
 defineEmits<{
-  confirm: [novelId: string];
+  confirm: [novelId: string, chapterNumbers: number[]];
 }>();
 
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -65,6 +70,23 @@ const dragging = ref(false);
 const uploading = ref(false);
 const error = ref("");
 const result = ref<UploadResultDto | null>(null);
+const selected = ref<Set<number>>(new Set());
+
+function initSelection(chapterCount: number) {
+  selected.value = new Set(Array.from({ length: chapterCount }, (_, i) => i + 1));
+}
+const allSelected = computed(() => result.value ? selected.value.size === result.value.chapters.length : false);
+
+function toggleAll() {
+  if (!result.value) return;
+  if (allSelected.value) selected.value = new Set();
+  else initSelection(result.value.chapters.length);
+}
+function toggleChapter(n: number) {
+  const s = new Set(selected.value);
+  s.has(n) ? s.delete(n) : s.add(n);
+  selected.value = s;
+}
 
 function triggerInput() {
   if (!uploading.value) fileInput.value?.click();
@@ -94,6 +116,7 @@ async function handleFile(file: File) {
 
   try {
     result.value = await uploadNovel(file);
+    initSelection(result.value.chapters.length);
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "上传失败";
   } finally {

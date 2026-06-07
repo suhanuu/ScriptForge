@@ -45,6 +45,10 @@ const route = useRoute();
 const scriptId = computed(() => Number(route.params.scriptId));
 const novelUuid = computed(() => route.params.novelUuid as string);
 const downloadUrl = computed(() => `/api/scripts/${scriptId.value}/yaml`);
+const selectedChapters = computed(() => {
+  const s = route.query.chapters as string;
+  return s ? new Set(s.split(",").map(Number).filter(n => !isNaN(n))) : null;
+});
 
 const loading = ref(true);
 const editMode = ref(false);
@@ -66,7 +70,8 @@ onMounted(async () => {
       .map((s: string, i: number) => ({
         index: i + 1, title: s.split("\n")[0]?.replace(/^#+\s*/, "").trim() || `第${i + 1}章`,
         content: s.trim(), charCount: s.length,
-      }));
+      }))
+      .filter(ch => !selectedChapters.value || selectedChapters.value.has(ch.index));
 
     if (scriptRes) {
       const result = scriptRes as unknown as ConvertResult;

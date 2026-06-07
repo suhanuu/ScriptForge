@@ -13,8 +13,9 @@ import UploadPanel from "@/components/Novel/UploadPanel.vue";
 
 const router = useRouter();
 
-function onConfirm(novelUuid: string) {
-  router.push({ name: "convert", params: { novelUuid } });
+function onConfirm(novelUuid: string, chapterNumbers: number[]) {
+  const chStr = chapterNumbers.join(",");
+  router.push({ name: "convert", params: { novelUuid }, query: { chapters: chStr } });
 }
 </script>
 
