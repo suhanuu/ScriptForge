@@ -39,12 +39,17 @@ import { getScriptResult, saveScriptYaml, validateYaml } from "@/api/script";
 import YamlEditor from "@/components/Script/YamlEditor.vue";
 import type { ChapterDto, ConvertResult } from "@/types";
 
-interface NovelData { id: number; uuid: string; fileName: string; rawContent: string; totalChars: number; }
+interface ChapterData { chapterNumber: number; title: string; content: string; wordCount: number; }
+interface NovelData { fileName: string; }
 
 const route = useRoute();
 const scriptId = computed(() => Number(route.params.scriptId));
 const novelUuid = computed(() => route.params.novelUuid as string);
 const downloadUrl = computed(() => `/api/scripts/${scriptId.value}/yaml`);
+const selectedChapters = computed(() => {
+  const s = route.query.chapters as string;
+  return s ? new Set(s.split(",").map(Number).filter(n => !isNaN(n))) : null;
+});
 
 const loading = ref(true);
 const editMode = ref(false);
@@ -54,19 +59,15 @@ const chapters = ref<ChapterDto[]>([]);
 
 onMounted(async () => {
   try {
-    const [novelRes, scriptRes] = await Promise.all([
+    const [novelRes, chaptersRes, scriptRes] = await Promise.all([
       get<NovelData>(`/novels/by-uuid/${novelUuid.value}`),
+      get<ChapterData[]>(`/novels/by-uuid/${novelUuid.value}/chapters`),
       getScriptResult(scriptId.value).catch(() => null),
     ]);
     novelTitle.value = novelRes.fileName || "未命名";
-    const raw = novelRes.rawContent || "";
-    const chSections = raw.split(/(?=第[0-9零一二三四五六七八九十百千]+[章节回卷])/);
-    chapters.value = chSections
-      .filter((s: string) => s.trim())
-      .map((s: string, i: number) => ({
-        index: i + 1, title: s.split("\n")[0]?.replace(/^#+\s*/, "").trim() || `第${i + 1}章`,
-        content: s.trim(), charCount: s.length,
-      }));
+    chapters.value = chaptersRes
+      .filter(ch => !selectedChapters.value || selectedChapters.value.has(ch.chapterNumber))
+      .map(ch => ({ index: ch.chapterNumber, title: ch.title, content: ch.content, charCount: ch.wordCount }));
 
     if (scriptRes) {
       const result = scriptRes as unknown as ConvertResult;

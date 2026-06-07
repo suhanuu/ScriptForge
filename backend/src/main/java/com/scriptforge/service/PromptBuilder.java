@@ -23,7 +23,7 @@ Schema 结构：metadata（剧本元信息）→ characters（全局角色表，
 
 1. 角色提取：先通读全文，提取所有角色到全局 characters 表，分配唯一 ID（拼音如 li_wei），填写 role 和 description
 2. 场景提取：提取所有场景地点到全局 locations 表，标注 type（内景/外景），分配唯一 ID 供 scene 引用
-3. 场景拆分：根据情节推进和地点变化拆分为多个 scene，用 "集-场" 格式的 scene_id（如 "1-1"、"1-2"）
+3. 场景拆分：根据情节推进和地点变化拆分为多个 scene，用 "集-场" 格式的 scene_id（如 "1-1"、"1-2"）。episode 的 title 取 "第X集：章节标题" 格式（如 "第一集：深夜来客"），不要单独用 "第一集" 或 "深夜来客"
 4. 内容编排：每个 scene 的 content 数组按时间线排列——action 和 dialogue 交替穿插，谁先发生谁在前
 5. 对话提取：保留原文全部对话，可适当润色使口语更自然。dialogue 元素包含 character（角色 ID）、text（台词）、parenthetical（括号提示语气）
 6. 转场设计：每个 scene 末尾放 transition 元素，指定 effect（切入/淡入/黑幕/闪回/无）和 next_scene（下一场 ID，本集最后一场用 null）
@@ -73,7 +73,7 @@ locations:
     description: "普通的办公区域，靠窗位置"
 episodes:
   - episode_id: 1
-    title: "第一集"
+    title: "第一集：方案被否决"
     scenes:
       - scene_id: "1-1"
         location: "office"
@@ -99,8 +99,23 @@ episodes:
 请严格按照以上格式输出。""";
     }
 
-    /** 构建 User Prompt，简洁即可，System Prompt 已承载全部规则 */
-    public String buildUserPrompt(String chapterTitle, String chapterContent) {
-        return "请将以下小说章节改编为剧本：\n\n## " + chapterTitle + "\n\n" + chapterContent;
+    /**
+     * 构建 User Prompt。
+     * @param chapterNumber 章节序号（如 1, 2, 3），用于 episode 编号
+     * @param chapterTitle  章节标题
+     * @param chapterContent 章节正文
+     */
+    public String buildUserPrompt(int chapterNumber, String chapterTitle, String chapterContent) {
+        String episodeLabel = toChineseOrdinal(chapterNumber) + "集";
+        return "这是小说第" + chapterNumber + "章。请将 episode_id 设为 " + chapterNumber
+                + "，episode title 使用「" + episodeLabel + "：" + chapterTitle + "」。\n\n## " + chapterTitle + "\n\n" + chapterContent;
+    }
+
+    private static final String[] ORDINALS = {"零", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"};
+
+    private String toChineseOrdinal(int n) {
+        if (n <= 0) return "第" + n;
+        if (n <= 10) return "第" + ORDINALS[n];
+        return "第" + n;
     }
 }
