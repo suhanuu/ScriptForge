@@ -103,6 +103,8 @@ public class ScriptService {
 
         try {
             String yaml = scriptConverter.merge(chapterScripts, novel.getFileName());
+            // 第二阶段：去 AI 味润色
+            yaml = scriptConverter.polishAllScenes(yaml);
             script.setYamlContent(yaml);
             script.setScenesCount(countScenes(chapterScripts));
             script.setStatus(doneCount == chapters.size() ? "READY" : "PARTIAL_ERROR");

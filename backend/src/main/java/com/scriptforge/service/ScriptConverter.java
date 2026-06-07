@@ -146,8 +146,37 @@ public class ScriptConverter {
         return yamlMapper.writeValueAsString(merged);
     }
 
-    /** 第二阶段：对合并后的每个 scene 做"去 AI 味"润色（可选，失败不阻塞） */
-    public String polishScene(String sceneYaml) {
+    /**
+     * 第二阶段：对合并后的完整剧本逐场做"去 AI 味"润色。
+     * 每场独立发 LLM 请求，只改 dialogues 部分，失败保留原始版本。
+     * @return 润色后的完整剧本 YAML
+     */
+    public String polishAllScenes(String fullYaml) throws JsonProcessingException {
+        if (!llmClient.isConfigured()) return fullYaml;
+
+        ScriptOutput script = yamlMapper.readValue(fullYaml, ScriptOutput.class);
+        int polished = 0;
+        for (var ep : script.getEpisodes()) {
+            for (var scene : ep.getScenes()) {
+                try {
+                    String sceneYaml = yamlMapper.writeValueAsString(scene);
+                    String polishedYaml = polishScene(sceneYaml);
+                    if (!polishedYaml.equals(sceneYaml)) {
+                        SceneDef polishedScene = yamlMapper.readValue(polishedYaml, SceneDef.class);
+                        scene.setContent(polishedScene.getContent());
+                        polished++;
+                    }
+                } catch (Exception e) {
+                    log.warn("Scene {} 润色失败，保留原始版本: {}", scene.getSceneId(), e.getMessage());
+                }
+            }
+        }
+        if (polished > 0) log.info("已润色 {} 场", polished);
+        return yamlMapper.writeValueAsString(script);
+    }
+
+    /** 对单个 scene 做润色（只改对话），失败不阻塞 */
+    private String polishScene(String sceneYaml) {
         if (!llmClient.isConfigured()) {
             return sceneYaml;
         }

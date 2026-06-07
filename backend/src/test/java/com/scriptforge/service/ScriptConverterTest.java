@@ -184,11 +184,11 @@ episodes:
     }
 
     @Test
-    void shouldSkipPolishWhenNotConfigured() {
+    void shouldSkipPolishWhenNotConfigured() throws Exception {
         when(llmClient.isConfigured()).thenReturn(false);
 
-        String sceneYaml = "metadata:\n  title: \"T\"\noriginal_work: \"O\"\nauthor: \"A\"\n";
-        String result = converter.polishScene(sceneYaml);
-        assertEquals(sceneYaml, result, "Should return original when LLM not configured");
+        String yaml = "metadata:\n  title: \"T\"\n  original_work: \"O\"\n  author: \"A\"\ncharacters: []\nlocations: []\nepisodes: []\n";
+        String result = converter.polishAllScenes(yaml);
+        assertEquals(yaml, result, "Should return original when LLM not configured");
     }
 }
