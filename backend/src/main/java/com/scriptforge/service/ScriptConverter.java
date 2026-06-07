@@ -53,17 +53,24 @@ public class ScriptConverter {
         return results;
     }
 
-    /** 超长章节：按场景自然分段（以空行或句号+换行为界），每段独立转换后合并 */
+    /** 超长章节：按场景自然分段，每段附带前一段末尾 2-3 句作为上下文，独立转换后合并 */
     private List<ChapterScriptResult> convertLongChapter(Chapter ch) {
         List<String> segments = splitByNaturalBreaks(ch.getContent());
         List<ScriptOutput> segmentScripts = new ArrayList<>();
         boolean anyFailed = false;
+        String prevTail = "";
 
         for (int i = 0; i < segments.size(); i++) {
+            // 前一段末尾 2-3 句作为上下文，帮助 LLM 保持情节连贯
+            String contextPrefix = prevTail.isEmpty() ? "" : "(接上文: " + prevTail + ")\n\n";
+            String segContent = contextPrefix + segments.get(i);
+            // 更新 prevTail 为当前段末尾 2-3 句
+            prevTail = extractTail(segments.get(i), 3);
+
             Chapter seg = Chapter.builder()
                     .chapterNumber(ch.getChapterNumber())
                     .title(ch.getTitle() + "(" + (i + 1) + "/" + segments.size() + ")")
-                    .content(segments.get(i))
+                    .content(segContent)
                     .build();
             var result = convertOneChapter(seg);
             if (result.success()) {
@@ -87,6 +94,17 @@ public class ScriptConverter {
         } catch (Exception e) {
             return List.of(new ChapterScriptResult(ch.getChapterNumber(), null, "分段合并失败: " + e.getMessage()));
         }
+    }
+
+    /** 提取文本末尾最后 n 句话（以句号/问号/感叹号为界） */
+    private String extractTail(String text, int sentenceCount) {
+        String[] parts = text.split("[。？！]");
+        if (parts.length <= sentenceCount) return text.substring(Math.max(0, text.length() - 50));
+        StringBuilder tail = new StringBuilder();
+        for (int i = parts.length - sentenceCount; i < parts.length; i++) {
+            tail.append(parts[i]).append("。");
+        }
+        return tail.length() > 100 ? tail.substring(tail.length() - 100) : tail.toString();
     }
 
     /** 按空行或句号+换行自然分段，每段不超过 maxLength */
