@@ -4,6 +4,7 @@
       <router-link to="/" class="back-link">&larr; 返回</router-link>
       <h2>{{ novelTitle }}</h2>
       <button class="btn btn-ghost" @click="editMode = !editMode">{{ editMode ? '预览' : '编辑' }}</button>
+      <button v-if="editMode && scriptId" class="btn btn-ghost" @click="validate">校验</button>
       <button v-if="editMode && scriptId" class="btn btn-primary" @click="saveYaml">保存</button>
       <a v-if="scriptId" :href="downloadUrl" class="btn btn-secondary" download>下载 YAML</a>
     </div>
@@ -23,7 +24,7 @@
 
       <div class="panel panel-right">
         <h3>剧本 {{ editMode ? '(编辑)' : '' }}</h3>
-        <YamlEditor v-if="editMode" v-model="yamlContent" />
+        <YamlEditor ref="yamlEditor" v-if="editMode" v-model="yamlContent" />
         <pre v-else class="yaml-text"><code>{{ yamlContent || '暂无剧本内容' }}</code></pre>
       </div>
     </div>
@@ -34,7 +35,7 @@
 import { ref, onMounted, computed } from "vue";
 import { useRoute } from "vue-router";
 import { get } from "@/api";
-import { getScriptResult, saveScriptYaml } from "@/api/script";
+import { getScriptResult, saveScriptYaml, validateYaml } from "@/api/script";
 import YamlEditor from "@/components/Script/YamlEditor.vue";
 import type { ChapterDto, ConvertResult } from "@/types";
 
@@ -73,6 +74,22 @@ onMounted(async () => {
     }
   } finally { loading.value = false; }
 });
+
+const yamlEditor = ref<InstanceType<typeof YamlEditor> | null>(null);
+
+async function validate() {
+  try {
+    const errors = await validateYaml(yamlContent.value);
+    if (errors.length === 0) {
+      alert("校验通过，无错误");
+      yamlEditor.value?.setMarkers([]);
+    } else {
+      yamlEditor.value?.setMarkers(errors);
+    }
+  } catch (e: unknown) {
+    alert("校验失败: " + (e instanceof Error ? e.message : "未知错误"));
+  }
+}
 
 async function saveYaml() {
   if (!scriptId.value) return;

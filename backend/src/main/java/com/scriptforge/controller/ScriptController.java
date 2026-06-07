@@ -3,12 +3,16 @@ package com.scriptforge.controller;
 import com.scriptforge.model.dto.ConvertRequestDto;
 import com.scriptforge.model.dto.SfResult;
 import com.scriptforge.service.ScriptService;
+import com.scriptforge.service.YamlValidator;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -20,6 +24,7 @@ import java.util.Map;
 public class ScriptController {
 
     private final ScriptService scriptService;
+    private final YamlValidator yamlValidator;
 
     /** 发起转换 */
     @PostMapping("/convert")
@@ -34,6 +39,16 @@ public class ScriptController {
         return SfResult.success(ScriptService.ConvertResult.builder()
                 .scriptId(script.getId()).status(script.getStatus())
                 .yamlContent(script.getYamlContent()).build());
+    }
+
+    /** Schema 校验 YAML */
+    @PostMapping("/validate")
+    public SfResult<List<String>> validate(@RequestBody Map<String, String> body) {
+        String yaml = body.get("yaml");
+        if (yaml == null || yaml.isBlank()) return SfResult.error(400, "YAML 内容为空");
+        var result = yamlValidator.tryParse(yaml);
+        if (!result.success()) return SfResult.error(400, "YAML 解析失败: " + result.error());
+        return SfResult.success(yamlValidator.validate(result.script()));
     }
 
     /** 保存编辑后的 YAML */
