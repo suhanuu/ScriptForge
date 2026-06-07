@@ -132,6 +132,14 @@ public class ScriptService {
         return script;
     }
 
+    /** 保存编辑后的 YAML 到数据库 */
+    public void saveYaml(Long scriptId, String yamlContent) {
+        Script script = scriptMapper.selectById(scriptId);
+        if (script == null) throw new BusinessException(404, "剧本不存在");
+        script.setYamlContent(yamlContent);
+        scriptMapper.updateById(script);
+    }
+
     private int countScenes(List<ScriptOutput> scripts) {
         return scripts.stream()
                 .flatMap(s -> s.getEpisodes().stream())
