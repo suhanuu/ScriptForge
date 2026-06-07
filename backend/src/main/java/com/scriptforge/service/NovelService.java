@@ -13,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -59,13 +60,17 @@ public class NovelService {
         novelMapper.insert(novel);
         var chapters = chapterSplitter.split(content);
 
-        // 持久化章节到 DB，供后续转换流程查询
+        // 持久化章节到 DB，去除内容中的 Markdown 标题行
         for (var ch : chapters) {
+            String cleanContent = ch.content()
+                    .replaceFirst("^(?:#{1,6}\\s+[^\n]*\n)+", "") // 去除开头 Markdown 标题行
+                    .replaceFirst("(?:\n>\\s*[^\n]*)+$", "")       // 去除末尾引用块注释
+                    .trim();
             chapterMapper.insert(Chapter.builder()
                     .novelId(novel.getId())
                     .chapterNumber(ch.index())
                     .title(ch.title())
-                    .content(ch.content())
+                    .content(cleanContent)
                     .wordCount(ch.charCount())
                     .build());
         }
@@ -80,5 +85,12 @@ public class NovelService {
         Novel novel = novelMapper.findByUuid(uuid);
         if (novel == null) throw new BusinessException(404, "小说不存在");
         return novel;
+    }
+
+    /** 按 UUID 查询该小说的所有章节 */
+    public List<Chapter> getChaptersByUuid(String uuid) {
+        Novel novel = novelMapper.findByUuid(uuid);
+        if (novel == null) throw new BusinessException(404, "小说不存在");
+        return chapterMapper.findByNovelIdOrderByChapterNumberAsc(novel.getId());
     }
 }

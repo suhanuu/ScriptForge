@@ -173,7 +173,7 @@ public class ScriptConverter {
     // ---- 内部方法 ----
 
     private ChapterScriptResult convertOneChapter(Chapter ch) {
-        String userPrompt = promptBuilder.buildUserPrompt(ch.getTitle(), ch.getContent());
+        String userPrompt = promptBuilder.buildUserPrompt(ch.getChapterNumber(), ch.getTitle(), ch.getContent());
         String systemPrompt = promptBuilder.buildSystemPrompt();
 
         for (int attempt = 0; attempt <= 2; attempt++) {
