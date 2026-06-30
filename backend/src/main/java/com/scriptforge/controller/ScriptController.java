@@ -4,6 +4,8 @@ import com.scriptforge.model.dto.ConvertRequestDto;
 import com.scriptforge.model.dto.SfResult;
 import com.scriptforge.service.ScriptService;
 import com.scriptforge.service.YamlValidator;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -21,6 +23,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/scripts")
 @RequiredArgsConstructor
+@Tag(name = "剧本转换", description = "剧本转换与下载控制器")
 public class ScriptController {
 
     private final ScriptService scriptService;
@@ -28,12 +31,14 @@ public class ScriptController {
 
     /** 发起转换 */
     @PostMapping("/convert")
+    @Operation(summary = "发起转换")
     public SfResult<ScriptService.ConvertResult> convert(@Valid @RequestBody ConvertRequestDto request) {
         return SfResult.success(scriptService.convert(request));
     }
 
     /** 获取剧本详情 */
     @GetMapping("/{id}")
+    @Operation(summary = "获取剧本详情")
     public SfResult<ScriptService.ConvertResult> getResult(@PathVariable Long id) {
         var script = scriptService.getScript(id);
         return SfResult.success(ScriptService.ConvertResult.builder()
@@ -43,6 +48,7 @@ public class ScriptController {
 
     /** Schema 校验 YAML */
     @PostMapping("/validate")
+    @Operation(summary = "Schema 校验 YAML")
     public SfResult<List<String>> validate(@RequestBody Map<String, String> body) {
         String yaml = body.get("yaml");
         if (yaml == null || yaml.isBlank()) return SfResult.error(400, "YAML 内容为空");
@@ -53,6 +59,7 @@ public class ScriptController {
 
     /** 保存编辑后的 YAML */
     @PutMapping("/{id}/yaml")
+    @Operation(summary = "保存编辑后的 YAML")
     public SfResult<Void> saveYaml(@PathVariable Long id, @RequestBody Map<String, String> body) {
         scriptService.saveYaml(id, body.get("yamlContent"));
         return SfResult.success();
@@ -60,6 +67,7 @@ public class ScriptController {
 
     /** 下载 YAML 文件 */
     @GetMapping("/{id}/yaml")
+    @Operation(summary = "下载 YAML 文件")
     public ResponseEntity<byte[]> downloadYaml(@PathVariable Long id) {
         String yaml = scriptService.getYaml(id);
         byte[] bytes = yaml.getBytes(StandardCharsets.UTF_8);
