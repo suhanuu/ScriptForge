@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.scriptforge.mapper.ChapterMapper">
+
+    <select id="findByNovelIdAndChapterNumbers" resultType="com.scriptforge.model.entity.Chapter">
+        SELECT * FROM chapters WHERE novel_id = #{novelId}
+        <if test="chapterNumbers != null and chapterNumbers.size() > 0">
+            AND chapter_number IN
+            <foreach item="n" collection="chapterNumbers" open="(" separator="," close=")">
+                #{n}
+            </foreach>
+        </if>
+        ORDER BY chapter_number ASC
+    </select>
+</mapper>
